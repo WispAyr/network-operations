@@ -8,7 +8,7 @@ export interface PlatformDevice {
     type: string;
     ipAddress?: string;
     macAddress?: string;
-    status: 'online' | 'offline' | 'unknown';
+    status: 'online' | 'offline' | 'degraded' | 'unknown';
     lastSeen?: Date;
     metadata: Record<string, unknown>;
 }
@@ -49,7 +49,7 @@ export interface SyncResult {
  */
 export abstract class BaseConnector {
     protected name: string;
-    protected type: 'zerotier' | 'unifi' | 'uisp' | 'tailscale' | 'cloudflare' | 'other';
+    protected type: 'zerotier' | 'unifi' | 'uisp' | 'protect' | 'starlink' | 'tailscale' | 'cloudflare' | 'other';
 
     constructor(name: string, type: BaseConnector['type']) {
         this.name = name;
@@ -97,6 +97,14 @@ export abstract class BaseConnector {
 }
 
 /**
+ * UniFi connector mode
+ * - 'sitemanager': Official Site Manager API v1.0 via api.ui.com (cloud)
+ * - 'local': Official Site Manager API v1.0 via direct UDM IP
+ * - 'legacy': Legacy cookie-based API (original connector)
+ */
+export type UniFiMode = 'sitemanager' | 'local' | 'legacy';
+
+/**
  * Configuration for platform connectors
  */
 export interface ConnectorConfig {
@@ -105,14 +113,31 @@ export interface ConnectorConfig {
         apiUrl?: string;
     };
     unifi?: {
-        controllerUrl: string;
-        username: string;
-        password: string;
-    } | {
-        cloudApiKey: string;
+        /** API mode: sitemanager (cloud), local (direct), or legacy (cookie auth) */
+        mode?: UniFiMode;
+        /** API key for sitemanager/local modes */
+        apiKey?: string;
+        /** UDM IP address for local mode */
+        udmIp?: string;
+        /** Console ID for sitemanager (cloud) mode */
+        consoleId?: string;
+        /** Controller URL for legacy mode */
+        controllerUrl?: string;
+        /** Username for legacy mode */
+        username?: string;
+        /** Password for legacy mode */
+        password?: string;
     };
     uisp?: {
         url: string;
         apiToken: string;
+    };
+    protect?: {
+        url: string;
+        username: string;
+        password: string;
+    };
+    starlink?: {
+        ip: string;
     };
 }

@@ -89,11 +89,51 @@ Add to your MCP client configuration (e.g., Claude Desktop):
 |----------|-------------|
 | `DATABASE_URL` | SQLite or PostgreSQL connection string |
 | `ZEROTIER_API_TOKEN` | ZeroTier Central API token |
-| `UNIFI_CONTROLLER_URL` | UniFi controller URL |
-| `UNIFI_USERNAME` | UniFi username |
-| `UNIFI_PASSWORD` | UniFi password |
+| `UNIFI_MODE` | `local`, `sitemanager`, or `legacy` (see below) |
+| `UNIFI_API_KEY` | UniFi API key for local/sitemanager modes |
+| `UNIFI_UDM_IP` | UDM IP address for local mode |
+| `UNIFI_CONSOLE_ID` | Console ID for sitemanager (cloud) mode |
+| `UNIFI_CONTROLLER_URL` | UniFi controller URL (legacy mode) |
+| `UNIFI_USERNAME` | UniFi username (legacy mode) |
+| `UNIFI_PASSWORD` | UniFi password (legacy mode) |
 | `UISP_URL` | UISP instance URL |
 | `UISP_API_TOKEN` | UISP API token |
+
+### UniFi Connector Modes
+
+The UniFi connector supports three modes:
+
+#### 1. `local` (Recommended)
+Uses the official Site Manager API v1.0 via direct connection to your UDM.
+- Set `UNIFI_MODE=local`
+- Provide `UNIFI_API_KEY` from UDM > Settings > Integrations
+- Provide `UNIFI_UDM_IP` (e.g., `10.10.10.1`)
+
+```env
+UNIFI_MODE=local
+UNIFI_API_KEY=your-api-key
+UNIFI_UDM_IP=10.10.10.1
+```
+
+#### 2. `sitemanager` (Cloud)
+Uses the official Site Manager API v1.0 via api.ui.com.
+- Set `UNIFI_MODE=sitemanager`
+- Provide `UNIFI_API_KEY` and `UNIFI_CONSOLE_ID`
+
+#### 3. `legacy` (Cookie Auth)
+Uses the original cookie-based authentication (for older controllers).
+- Set `UNIFI_MODE=legacy`
+- Provide `UNIFI_CONTROLLER_URL`, `UNIFI_USERNAME`, `UNIFI_PASSWORD`
+
+### Extended Device Data (Site Manager API)
+
+When using `local` or `sitemanager` mode, the connector provides extended device metrics:
+
+- **System Stats**: `uptimeSec`, `cpuUtilizationPct`, `memoryUtilizationPct`
+- **Load Averages**: `loadAverage1Min`, `loadAverage5Min`, `loadAverage15Min`
+- **Throughput**: `uplinkTxBps`, `uplinkRxBps`
+- **AP Specific**: `clientCount`, `ssids`, radio stats
+- **Heartbeat**: `lastHeartbeatAt`, `nextHeartbeatAt`
 
 ## Development
 
