@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react'
 import './App.css'
+import { SiteTree, SiteOverview, DeviceManagement } from './components'
+import { NetworkTopology } from './components/NetworkTopology'
+import type { TopologyNode, TopologyLink } from './components/NetworkTopology'
+import './components/DeviceManagement.css'
+import { API_BASE } from './config'
 
 // Types matching our backend schema
 interface Site {
@@ -62,49 +67,26 @@ interface DiscoveredDevice {
   openPorts?: number[]
 }
 
-// Mock data for demo - in production, fetch from API
-const mockData: InfrastructureData = {
-  sites: [
-    { id: '1', name: 'NOC - Edinburgh', role: 'noc', isPrimary: true, latitude: 55.9533, longitude: -3.1883 },
-    { id: '2', name: 'Camera Site Alpha', role: 'remote', primaryUplinkType: 'cellular', latitude: 55.8642, longitude: -4.2518 },
-    { id: '3', name: 'Camera Site Beta', role: 'remote', primaryUplinkType: 'starlink', latitude: 56.4907, longitude: -4.2026 },
-    { id: '4', name: 'Festival Grounds', role: 'field', latitude: 55.9445, longitude: -3.1892 },
-  ],
-  devices: [
-    { id: 'd1', name: 'Core Router', type: 'router', status: 'online', primaryIp: '10.0.0.1' },
-    { id: 'd2', name: 'Cloud Key Gen2+', type: 'controller', status: 'online', primaryIp: '10.0.0.10' },
-    { id: 'd3', name: 'PTZ Camera 01', type: 'camera', status: 'online', primaryIp: '192.168.1.100' },
-    { id: 'd4', name: 'Starlink Terminal', type: 'gateway', status: 'online', primaryIp: '192.168.100.1' },
-    { id: 'd5', name: 'LTE Modem', type: 'gateway', status: 'degraded', primaryIp: '192.168.200.1' },
-    { id: 'd6', name: 'Remote Camera 02', type: 'camera', status: 'offline' },
-  ],
-  networks: [
-    { id: 'n1', name: 'ZeroTier Backbone', role: 'core', trustZone: 'trusted', status: 'active' },
-    { id: 'n2', name: 'Office LAN', role: 'local', trustZone: 'trusted', status: 'active' },
-    { id: 'n3', name: 'Starlink WAN', role: 'transit', trustZone: 'untrusted', status: 'active' },
-    { id: 'n4', name: 'Festival WiFi', role: 'edge', trustZone: 'semi-trusted', status: 'active' },
-    { id: 'n5', name: 'Cellular Backup', role: 'transit', trustZone: 'untrusted', status: 'degraded' },
-  ],
-  vehicles: [
-    { id: 'v1', name: 'Operations Van 1', type: 'van' },
-    { id: 'v2', name: 'MACC Unit', type: 'trailer' },
-  ],
-  deployments: [
-    { id: 'dep1', name: 'Summer Festival 2026', type: 'festival', status: 'active', vehicleId: 'v1' },
-    { id: 'dep2', name: 'Emergency Response', type: 'emergency', status: 'standby' },
-  ],
+// API_BASE imported from config.ts
+
+// Empty initial data - will be populated from API
+const emptyData: InfrastructureData = {
+  sites: [],
+  devices: [],
+  networks: [],
+  vehicles: [],
+  deployments: [],
 }
 
-// Mock discovered devices from network scan
-const mockDiscoveredDevices: DiscoveredDevice[] = [
-  { id: 'disc1', ipAddress: '192.168.1.1', macAddress: 'E0:63:DA:1A:2B:3C', hostname: 'ubnt-router', macVendor: 'Ubiquiti', classification: 'known', deviceType: 'router', lastSeenAt: new Date(), openPorts: [22, 80, 443] },
-  { id: 'disc2', ipAddress: '192.168.1.10', macAddress: 'D0:21:F9:4D:5E:6F', hostname: 'synology-nas', macVendor: 'Synology', classification: 'authorized', deviceType: 'nas', lastSeenAt: new Date(), openPorts: [22, 80, 443, 5000] },
-  { id: 'disc3', ipAddress: '192.168.1.20', macAddress: '00:1A:79:7A:8B:9C', macVendor: 'Ubiquiti', classification: 'known', deviceType: 'access_point', lastSeenAt: new Date() },
-  { id: 'disc4', ipAddress: '192.168.1.50', macAddress: '28:E0:2C:AB:CD:EF', hostname: 'MacBook-Pro', macVendor: 'Apple', classification: 'known', deviceType: 'workstation', lastSeenAt: new Date() },
-  { id: 'disc5', ipAddress: '192.168.1.75', macAddress: 'B8:27:EB:12:34:56', macVendor: 'Raspberry Pi', classification: 'unknown', deviceType: 'iot', lastSeenAt: new Date(), openPorts: [22, 8080] },
-  { id: 'disc6', ipAddress: '192.168.1.101', macAddress: '54:60:09:AA:BB:CC', macVendor: 'Google Nest', classification: 'unknown', deviceType: 'iot', lastSeenAt: new Date() },
-  { id: 'disc7', ipAddress: '192.168.1.150', macAddress: 'AA:BB:CC:DD:EE:FF', classification: 'suspicious', deviceType: 'unknown', lastSeenAt: new Date(), openPorts: [22, 23, 80, 8080, 8443] },
-  { id: 'disc8', ipAddress: '192.168.1.200', macAddress: '18:31:BF:11:22:33', macVendor: 'Starlink', classification: 'known', deviceType: 'router', lastSeenAt: new Date(), openPorts: [80] },
+// Network Topology Data - will be fetched from API
+// Default/fallback values
+const defaultTopologyNodes: TopologyNode[] = [
+  { id: 'skynet', name: 'Skynet AI', type: 'skynet', status: 'online', ip: '192.168.195.33', layer: 0, vendor: 'Custom' },
+  { id: 'zerotier-gw', name: 'ZeroTier Gateway', type: 'gateway', status: 'online', ip: '192.168.195.1', layer: 1, vendor: 'ZeroTier' },
+]
+
+const defaultTopologyLinks: TopologyLink[] = [
+  { source: 'skynet', target: 'zerotier-gw', type: 'vpn', status: 'active' },
 ]
 
 // Icon components
@@ -128,12 +110,84 @@ const Icons = {
 }
 
 function App() {
-  const [data] = useState<InfrastructureData>(mockData)
-  const [selectedView, setSelectedView] = useState<'overview' | 'radar' | 'trust' | 'deployments' | 'scanner'>('overview')
+  const [data, setData] = useState<InfrastructureData>(emptyData)
+  const [selectedView, setSelectedView] = useState<'overview' | 'sites' | 'devices' | 'radar' | 'trust' | 'deployments' | 'scanner' | 'topology'>('overview')
+  const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [scanProgress, setScanProgress] = useState(0)
   const [isScanning, setIsScanning] = useState(false)
-  const [discoveredDevices] = useState<DiscoveredDevice[]>(mockDiscoveredDevices)
+  const [discoveredDevices, setDiscoveredDevices] = useState<DiscoveredDevice[]>([])
+  const [loading, setLoading] = useState(true)
+  const [topologyNodes, setTopologyNodes] = useState<TopologyNode[]>(defaultTopologyNodes)
+  const [topologyLinks, setTopologyLinks] = useState<TopologyLink[]>(defaultTopologyLinks)
+
+  // Fetch data from API
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [devicesRes, sitesRes, servicesRes, topologyRes] = await Promise.all([
+          fetch(`${API_BASE}/devices`).then(r => r.json()).catch(() => ({ devices: [] })),
+          fetch(`${API_BASE}/sites?stats=true`).then(r => r.json()).catch(() => []),
+          fetch(`${API_BASE}/services`).then(r => r.json()).catch(() => []),
+          fetch(`${API_BASE}/devices/topology`).then(r => r.json()).catch(() => ({ nodes: defaultTopologyNodes, links: defaultTopologyLinks })),
+        ]);
+        
+        // Map API devices to our format
+        const devicesList = devicesRes.devices || devicesRes || [];
+        const devices = (devicesList).map((d: any) => ({
+          id: d.id,
+          name: d.name,
+          type: d.type || 'unknown',
+          status: d.status || 'unknown',
+          primaryIp: d.primaryIp || d.ipAddress,
+        }));
+        
+        // Map sites with stats
+        const sites = (sitesRes || []).map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          role: s.role || 'remote',
+          isPrimary: s.isPrimary,
+          latitude: s.latitude,
+          longitude: s.longitude,
+          stats: s.stats,
+        }));
+        
+        setData({
+          ...emptyData,
+          devices,
+          sites,
+        });
+        
+        // Map services as discovered devices
+        const discovered = (servicesRes || []).map((s: any) => ({
+          id: s.pm2 || s.name,
+          ipAddress: `localhost:${s.port}`,
+          hostname: s.name,
+          classification: s.status === 'online' ? 'known' : 'unknown',
+          deviceType: s.type || 'service',
+          lastSeenAt: new Date(),
+          openPorts: s.port ? [s.port] : [],
+        }));
+        setDiscoveredDevices(discovered);
+        
+        // Set topology data
+        if (topologyRes.nodes && topologyRes.nodes.length > 0) {
+          setTopologyNodes(topologyRes.nodes);
+          setTopologyLinks(topologyRes.links || []);
+        }
+        
+      } catch (err) {
+        console.error('Failed to fetch data:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchData();
+    const interval = setInterval(fetchData, 30000); // Refresh every 30s
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
@@ -176,6 +230,18 @@ function App() {
           📊 Overview
         </button>
         <button
+          className={`nav-item ${selectedView === 'sites' ? 'active' : ''}`}
+          onClick={() => setSelectedView('sites')}
+        >
+          🏢 Sites
+        </button>
+        <button
+          className={`nav-item ${selectedView === 'devices' ? 'active' : ''}`}
+          onClick={() => setSelectedView('devices')}
+        >
+          📱 Devices
+        </button>
+        <button
           className={`nav-item ${selectedView === 'radar' ? 'active' : ''}`}
           onClick={() => setSelectedView('radar')}
         >
@@ -198,6 +264,12 @@ function App() {
           onClick={() => setSelectedView('scanner')}
         >
           🔍 Network Scan
+        </button>
+        <button
+          className={`nav-item ${selectedView === 'topology' ? 'active' : ''}`}
+          onClick={() => setSelectedView('topology')}
+        >
+          🕸️ Topology
         </button>
       </nav>
 
@@ -232,15 +304,16 @@ function App() {
             <div className="panels-row">
               {/* Sites Panel */}
               <div className="glass-card panel">
-                <h2>🏢 Sites</h2>
+                <h2>🏢 Sites ({data.sites.length})</h2>
                 <div className="panel-content">
                   {data.sites.map(site => (
-                    <div key={site.id} className="list-item">
+                    <div key={site.id} className="list-item" onClick={() => { setSelectedSiteId(site.id); setSelectedView('sites'); }}>
                       <span className="item-icon">
                         {site.role === 'noc' ? Icons.noc : Icons.remote}
                       </span>
                       <span className="item-name">{site.name}</span>
-                      <span className={`item-badge ${site.role}`}>{site.role.toUpperCase()}</span>
+                      <span className="item-count">{(site as any).stats?.deviceCount ?? 0} devices</span>
+                      <span className={`item-badge ${site.role}`}>{site.role?.toUpperCase() || 'OTHER'}</span>
                     </div>
                   ))}
                 </div>
@@ -335,6 +408,38 @@ function App() {
               </div>
             </div>
           </div>
+        )}
+
+        {selectedView === 'sites' && (
+          <div className="view-sites">
+            <div className="sites-layout">
+              {/* Left sidebar - Tree navigation */}
+              <div className="sites-sidebar">
+                <SiteTree 
+                  onSelect={(item) => {
+                    if (item.type === 'site') {
+                      setSelectedSiteId(item.id);
+                    }
+                  }}
+                  apiUrl={API_BASE}
+                />
+              </div>
+              
+              {/* Main content - Site overview */}
+              <div className="sites-content">
+                <SiteOverview 
+                  siteId={selectedSiteId}
+                  onLocationSelect={(locId) => console.log('Selected location:', locId)}
+                  onAddLocation={(siteId) => console.log('Add location to:', siteId)}
+                  apiUrl={API_BASE}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {selectedView === 'devices' && (
+          <DeviceManagement />
         )}
 
         {selectedView === 'radar' && (
@@ -719,6 +824,33 @@ function App() {
                     </span>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {selectedView === 'topology' && (
+          <div className="view-topology">
+            <div className="glass-card topology-panel">
+              <div className="topology-header">
+                <h2>🕸️ Interactive Network Topology</h2>
+                <div className="topology-controls">
+                  <span className="hint">Click a device to see path from Skynet • Drag nodes to reposition • Scroll to zoom</span>
+                </div>
+              </div>
+              <div className="topology-wrapper">
+                <NetworkTopology
+                  nodes={topologyNodes}
+                  links={topologyLinks}
+                  width={1200}
+                  height={700}
+                  onNodeClick={(node) => {
+                    console.log('Selected node:', node)
+                  }}
+                  onPathHighlight={(path) => {
+                    console.log('Path from Skynet:', path.map(n => n.name).join(' → '))
+                  }}
+                />
               </div>
             </div>
           </div>
